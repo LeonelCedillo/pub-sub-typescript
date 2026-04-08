@@ -1,7 +1,8 @@
 import amqp from "amqplib";
+import { publishJSON } from "../internal/pubsub/publish.js";
+import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
 
 async function main() {
-  console.log("Starting Peril server...");
   // Connection string (This is how your application will know where to connect to the RabbitMQ server):
   const rabbitConnString = "amqp://guest:guest@localhost:5672/";
   const conn = await amqp.connect(rabbitConnString); // creates a new connection to rabbitMQ
@@ -19,6 +20,13 @@ async function main() {
       }
     }),
   );
+
+  const publishCh = await conn.createConfirmChannel();
+  try {
+    await publishJSON(publishCh, ExchangePerilDirect, PauseKey, { isPaused: true});
+  } catch (err) {
+    console.error("Error publishing message:", err);
+  }
 }
 
 main().catch((err) => {
