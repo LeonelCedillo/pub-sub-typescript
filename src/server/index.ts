@@ -1,6 +1,7 @@
 import amqp from "amqplib";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
 
 async function main() {
   // Connection string (This is how your application will know where to connect to the RabbitMQ server):
@@ -22,10 +23,37 @@ async function main() {
   );
 
   const publishCh = await conn.createConfirmChannel();
-  try {
-    await publishJSON(publishCh, ExchangePerilDirect, PauseKey, { isPaused: true});
-  } catch (err) {
-    console.error("Error publishing message:", err);
+
+  printServerHelp();
+
+  while (true) {
+    const words = await getInput();
+    if (words.length === 0) continue;
+    const command = words[0];
+    switch (command) {
+      case "pause":
+        console.log("Sending a pause message!");
+        try {
+          await publishJSON(publishCh, ExchangePerilDirect, PauseKey, { isPaused: true});
+        } catch (err) {
+          console.error("Error publishing message:", err);
+        }
+        break;
+      case "resume":
+        console.log("Sending a resume message!");
+        try {
+          await publishJSON(publishCh, ExchangePerilDirect, PauseKey, { isPaused: false});
+        } catch (err) {
+          console.error("Error publishing message:", err);
+        }
+        break;
+      case "quit":
+        console.log("Goodbye!");
+        process.exit(0);
+        break;
+      default:
+        console.log("Unknown command");
+    } 
   }
 }
 
