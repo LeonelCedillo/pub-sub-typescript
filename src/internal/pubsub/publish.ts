@@ -1,5 +1,7 @@
 import { type ConfirmChannel } from "amqplib";
 
+
+// (server) Publish a message to the exchange 
 export function publishJSON<T>(
   ch: ConfirmChannel,
   exchange: string,
