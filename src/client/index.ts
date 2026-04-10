@@ -27,6 +27,7 @@ async function main() {
   );
 
   const username = await clientWelcome();
+  // Declare and bind a Queue to an Exhange (each time a client is created):
   await declareAndBind(
     conn, 
     ExchangePerilDirect, 
