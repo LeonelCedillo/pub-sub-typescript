@@ -1,10 +1,11 @@
 import amqp from "amqplib";
 import { clientWelcome, printClientHelp, getInput, commandStatus, printQuit } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
+import { declareAndBind, SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
 import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
+import { handlerPause } from "./handlers.js";
 
 
 async function main() {
@@ -27,16 +28,17 @@ async function main() {
   );
 
   const username = await clientWelcome();
-  // Declare and bind a Queue to an Exhange (each time a client is created):
-  await declareAndBind(
+  const gs = new GameState(username);
+  // Declares a queue and binds it to an Exhange (each time a client is created),
+  // And consumes a new message from that queue
+  await subscribeJSON(
     conn, 
     ExchangePerilDirect, 
     `${PauseKey}.${username}`, 
     PauseKey, 
-    SimpleQueueType.Transient
+    SimpleQueueType.Transient, 
+    handlerPause(gs)
   );
-
-  const gs = new GameState(username);
 
   while (true) {
     const words = await getInput();
