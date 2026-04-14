@@ -1,6 +1,12 @@
 import amqp, { type Channel } from "amqplib";
 
 
+export enum AckType {
+    Ack,
+    NackRequeue,
+    NackDiscard
+}
+
 export enum SimpleQueueType {
   Durable,
   Transient,
@@ -32,7 +38,7 @@ export async function subscribeJSON<T>(
   queueName: string,
   key: string,
   queueType: SimpleQueueType,
-  handler: (data: T) => void,
+  handler: (data: T) => AckType,
 ): Promise<void> {
     const [ch, queue] = await declareAndBind(
         conn, exchange, queueName, key, queueType
@@ -46,9 +52,32 @@ export async function subscribeJSON<T>(
             console.error("Could not unmarshall message:", err);
             return;
         }
-        handler(data);
-        // Acknowledge the message to remove it from the queue
-        ch.ack(msg);
+        try {
+            // Acknowledge the message to remove it from the queue
+            const result = handler(data);
+            switch(result) {
+                case AckType.Ack:
+                    ch.ack(msg);
+                    console.log("Ack");
+                    break;
+                case AckType.NackDiscard:
+                    ch.nack(msg, false, false);
+                    console.log("NackDiscard");
+                    break;
+                case AckType.NackRequeue:
+                    ch.nack(msg, false, true);
+                    console.log("NackRequeue");
+                    break;
+                default: 
+                    const unreachable: never = result;
+                    console.error("Unexpected ack type:", unreachable);
+                    return;
+            }
+        } catch(err) {
+            console.error("Error handling message:", err);
+            ch.nack(msg, false, false);
+            return;
+        }
     });
     
 }
