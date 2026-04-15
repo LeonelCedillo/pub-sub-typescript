@@ -28,7 +28,7 @@ async function main() {
   await declareAndBind(
     conn, 
     ExchangePerilTopic,
-    GameLogSlug,
+    GameLogSlug, // Queue: game_logs
     `${GameLogSlug}.*`,
     SimpleQueueType.Durable
   )

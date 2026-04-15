@@ -1,13 +1,20 @@
 import amqp from "amqplib";
 import { clientWelcome, printClientHelp, getInput, commandStatus, printQuit } from "../internal/gamelogic/gamelogic.js";
 import { SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
-import { ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
-import { handlerMove, handlerPause } from "./handlers.js";
+import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
 import type { ArmyMove } from "../internal/gamelogic/gamedata.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
+import { 
+  ExchangePerilDirect, 
+  ExchangePerilTopic, 
+  PauseKey, 
+  ArmyMovesPrefix, 
+  WarRecognitionsPrefix 
+} from "../internal/routing/routing.js";
+
 
 
 async function main() {
@@ -39,7 +46,7 @@ async function main() {
   await subscribeJSON(
     conn, 
     ExchangePerilDirect, 
-    `${PauseKey}.${username}`, // from queue Pause.<username>
+    `${PauseKey}.${username}`, // Queue: pause.username
     PauseKey, 
     SimpleQueueType.Transient, 
     handlerPause(gs)
@@ -48,10 +55,19 @@ async function main() {
   await subscribeJSON(
     conn, 
     ExchangePerilTopic, 
-    `${ArmyMovesPrefix}.${username}`, // from queue army_moves.<username>
+    `${ArmyMovesPrefix}.${username}`, // Queue: army_moves.username
     `${ArmyMovesPrefix}.*`, 
     SimpleQueueType.Transient, 
-    handlerMove(gs)
+    handlerMove(gs, publishCh)
+  );
+
+  await subscribeJSON(
+    conn,
+    ExchangePerilTopic,
+    WarRecognitionsPrefix, // Queue: war
+    `${WarRecognitionsPrefix}.*`,
+    SimpleQueueType.Durable,
+    handlerWar(gs),
   );
 
   while (true) {

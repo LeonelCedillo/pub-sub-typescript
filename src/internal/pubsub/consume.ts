@@ -39,12 +39,12 @@ export async function subscribeJSON<T>(
   queueName: string,
   key: string,
   queueType: SimpleQueueType,
-  handler: (data: T) => AckType,
+  handler: (data: T) => Promise<AckType> | AckType,
 ): Promise<void> {
     const [ch, queue] = await declareAndBind(
         conn, exchange, queueName, key, queueType
     );
-    await ch.consume(queue.queue, (msg: amqp.ConsumeMessage | null) => {
+    await ch.consume(queue.queue, async (msg: amqp.ConsumeMessage | null) => {
         if (!msg) return;
         let data: T;
         try {
@@ -55,7 +55,7 @@ export async function subscribeJSON<T>(
         }
         try {
             // Acknowledge the message to remove it from the queue
-            const result = handler(data);
+            const result = await handler(data);
             switch(result) {
                 case AckType.Ack:
                     ch.ack(msg);
