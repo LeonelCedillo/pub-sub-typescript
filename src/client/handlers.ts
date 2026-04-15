@@ -15,8 +15,8 @@ export function handlerPause(gs:GameState): (ps: PlayingState) => AckType {
     return (ps: PlayingState): AckType => {
         handlePause(gs, ps);
         process.stdout.write("> ");
-        return AckType.Ack
-    }
+        return AckType.Ack;
+    };
 }
 
 
@@ -40,9 +40,9 @@ export function handlerMove(gs:GameState, ch:ConfirmChannel): (move: ArmyMove) =
                             `${WarRecognitionsPrefix}.${gs.getUsername()}`, //user consuming the move
                             rw
                         )
+                        return AckType.Ack;
                     } catch(err) {
                         console.error("Error publishing war recognition:", err);
-                    } finally {
                         return AckType.NackRequeue;
                     }
                 default:
@@ -62,7 +62,9 @@ export function handlerWar(gs:GameState): (war: RecognitionOfWar) => Promise<Ack
             const outcome = handleWar(gs, war);
             switch (outcome.result) {
                 case WarOutcome.NotInvolved:
+                    // Requeue the message so that another client can pick it up and try to process it.
                     return AckType.NackRequeue;
+                    // The event can only be processed successfully by a client involved in the war.
                 case WarOutcome.NoUnits: 
                     return AckType.NackDiscard;
                 case WarOutcome.OpponentWon:
