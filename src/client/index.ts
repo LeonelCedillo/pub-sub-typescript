@@ -1,4 +1,4 @@
-import amqp from "amqplib";
+import amqp, { type ConfirmChannel } from "amqplib";
 import { clientWelcome, printClientHelp, getInput, commandStatus, printQuit } from "../internal/gamelogic/gamelogic.js";
 import { SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
@@ -6,14 +6,16 @@ import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
 import type { ArmyMove } from "../internal/gamelogic/gamedata.js";
-import { publishJSON } from "../internal/pubsub/publish.js";
+import { publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
 import { 
   ExchangePerilDirect, 
   ExchangePerilTopic, 
   PauseKey, 
   ArmyMovesPrefix, 
-  WarRecognitionsPrefix 
+  WarRecognitionsPrefix, 
+  GameLogSlug
 } from "../internal/routing/routing.js";
+import type { GameLog } from "../internal/gamelogic/logs.js";
 
 
 
@@ -67,7 +69,7 @@ async function main() {
     WarRecognitionsPrefix, // Queue: war
     `${WarRecognitionsPrefix}.*`,
     SimpleQueueType.Durable,
-    handlerWar(gs),
+    handlerWar(gs, publishCh),
   );
 
   while (true) {
@@ -85,7 +87,7 @@ async function main() {
       case "move":
         try {
           const move: ArmyMove = commandMove(gs, words);
-          publishJSON(
+          await publishJSON(
             publishCh,
             ExchangePerilTopic,
             `${ArmyMovesPrefix}.${username}`,
@@ -112,6 +114,23 @@ async function main() {
     } 
   }
 }
+
+
+
+export function publishGameLog(ch: ConfirmChannel, username: string, message: string): Promise<void> {
+  const log: GameLog = {
+    currentTime: new Date(),
+    message, // description of the war event
+    username, // player who initiated the war
+  }
+  return publishMsgPack(
+    ch, 
+    ExchangePerilTopic, 
+    `${GameLogSlug}.${username}`, 
+    log
+  );
+}
+
 
 
 main().catch((err) => {
