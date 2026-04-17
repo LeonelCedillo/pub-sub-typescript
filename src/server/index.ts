@@ -2,7 +2,9 @@ import amqp from "amqplib";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey } from "../internal/routing/routing.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
+import { SimpleQueueType, subscribeMsgPack } from "../internal/pubsub/consume.js";
+import { handlerLog } from "../server/handlers.js";
+
 
 async function main() {
   // Connection string (This is how your application will know where to connect to the RabbitMQ server):
@@ -25,13 +27,14 @@ async function main() {
 
   const publishCh = await conn.createConfirmChannel();
 
-  await declareAndBind(
-    conn, 
+  await subscribeMsgPack(
+    conn,
     ExchangePerilTopic,
     GameLogSlug, // Queue: game_logs
-    `${GameLogSlug}.*`,
-    SimpleQueueType.Durable
-  )
+    `${GameLogSlug}.*`, // Capture logs from all clients, no matter the username.
+    SimpleQueueType.Durable,
+    handlerLog()
+  );
 
   printServerHelp();
 
