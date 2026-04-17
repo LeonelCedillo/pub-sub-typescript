@@ -46,6 +46,13 @@ export async function subscribe<T>(
     const [ch, queue] = await declareAndBind(
         conn, exchange, queueName, routingKey, queueType
     );
+
+    await ch.prefetch(1);
+    // This tells RabbitMQ to only deliver one unacknowledged message 
+    // at a time. It waits for an ack before sending the next one. 
+    // That way, the server processes messages strictly one at a time, 
+    // and we can finally see the queue grow.
+    
     await ch.consume(queue.queue, async (msg: amqp.ConsumeMessage | null) => {
         if (!msg) return;
         let data: T;
